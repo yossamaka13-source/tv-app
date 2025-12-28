@@ -125,8 +125,26 @@ function createPoster(movie) {
     img.alt = movie.title;
 
     div.appendChild(img);
+
+    // ✅ CLICK SUPPORT FOR SAMSUNG TV
+    div.addEventListener('click', function () {
+        var container = currentSection === 'trending' ? trendingRow : searchResultsRow;
+        var posters = container.getElementsByClassName('poster');
+
+        for (var i = 0; i < posters.length; i++) {
+            if (posters[i] === div) {
+                currentFocusIndex = i;
+                break;
+            }
+        }
+
+        updateFocus();
+        openPlayer();
+    });
+
     return div;
 }
+
 
 function updateFocus() {
     var container = currentSection === 'trending' ? trendingRow : searchResultsRow;
