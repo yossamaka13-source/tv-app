@@ -1,25 +1,55 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <meta charset="utf-8">
-    <title>Smart TV Streaming</title>
-    <meta name="viewport" content="width=1920,height=1080">
-    <link rel="stylesheet" href="style.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TV Streaming App</title>
+    <link rel="stylesheet" href="/tv-app/style.css">
 </head>
 <body>
+    <div id="app-container">
+        <!-- Header -->
+        <header id="header">
+            <h1 id="app-title">TV Streaming</h1>
+            <!-- Search Input -->
+            <div id="search-container">
+                <input type="text" id="search-input" placeholder="Search movies..." autocomplete="off" />
+            </div>
+        </header>
 
-<div id="app">
+        <!-- Loading Indicator -->
+        <div id="loading" class="hidden">
+            <div class="spinner"></div>
+            <p>Loading...</p>
+        </div>
 
-    <!-- Rows -->
-    <div id="rows"></div>
+        <!-- Main Content - Movie Rows -->
+        <main id="main-content">
+            <div id="trending-section">
+                <h2 class="section-title">Trending Now</h2>
+                <div id="trending-row" class="poster-row">
+                    <!-- Posters will be dynamically inserted here -->
+                </div>
+            </div>
 
-</div>
+            <div id="search-results-section" class="hidden">
+                <h2 class="section-title">Search Results</h2>
+                <div id="search-results-row" class="poster-row">
+                    <!-- Search results will be dynamically inserted here -->
+                </div>
+                <p id="no-results" class="no-results hidden">No results found</p>
+            </div>
+        </main>
 
-<!-- Player Overlay -->
-<div id="playerOverlay" class="hidden">
-    <iframe id="playerFrame" src="" frameborder="0" allowfullscreen></iframe>
-</div>
+        <!-- Full Screen Video Player -->
+        <div id="video-player-container" class="hidden">
+            <div id="player-wrapper">
+                <button id="close-player-btn" class="close-btn">✕ Close</button>
+                <iframe id="video-iframe" frameborder="0" allowfullscreen></iframe>
+            </div>
+        </div>
+    </div>
 
-<script src="app.js"></script>
+    <script src="/tv-app/app.js"></script>
 </body>
 </html>
