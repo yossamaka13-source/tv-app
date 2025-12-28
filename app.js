@@ -17,6 +17,7 @@ var currentSection = 'trending'; // 'trending' or 'search'
 var isPlayerOpen = false;
 var searchQuery = '';
 var searchTimeout = null;
+var isUsingCursor = false; // Track if user is using cursor
 
 // DOM Elements
 var searchInput = null;
@@ -153,17 +154,18 @@ function renderMovies(movieList, container) {
         }
 
         var posterUrl = IMAGE_BASE_URL + posterPath;
-        var poster = createPosterElement(movie, posterUrl);
+        var poster = createPosterElement(movie, posterUrl, i);
         container.appendChild(poster);
     }
 }
 
 // Create Poster Element
-function createPosterElement(movie, posterUrl) {
+function createPosterElement(movie, posterUrl, index) {
     var poster = document.createElement('div');
     poster.className = 'poster';
     poster.setAttribute('data-id', movie.id);
     poster.setAttribute('data-title', movie.title || movie.name);
+    poster.setAttribute('data-index', index);
     poster.setAttribute('tabindex', '0');
 
     var img = document.createElement('img');
@@ -173,7 +175,34 @@ function createPosterElement(movie, posterUrl) {
 
     poster.appendChild(img);
 
+    // Add cursor control event listeners
+    addCursorListeners(poster, index);
+
     return poster;
+}
+
+// Add Cursor Control Event Listeners
+function addCursorListeners(poster, index) {
+    // Mouse enter - user is using cursor
+    poster.addEventListener('mouseenter', function() {
+        isUsingCursor = true;
+        currentFocusIndex = index;
+        updateFocus();
+    });
+
+    // Mouse leave - cursor left the poster
+    poster.addEventListener('mouseleave', function() {
+        // Don't remove focus, just track that cursor left
+        // The focused state will remain until another poster is hovered
+    });
+
+    // Click - open video player
+    poster.addEventListener('click', function() {
+        isUsingCursor = true;
+        currentFocusIndex = index;
+        updateFocus();
+        openPlayer();
+    });
 }
 
 // Update Focus State
@@ -302,6 +331,11 @@ function handleKeyDown(event) {
     // If player is open, only handle return key
     if (isPlayerOpen) {
         return;
+    }
+
+    // If user starts using keyboard, disable cursor mode
+    if (keyCode === 37 || keyCode === 38 || keyCode === 39 || keyCode === 40 || keyCode === 13) {
+        isUsingCursor = false;
     }
 
     var currentMovies = getCurrentMovies();
