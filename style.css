@@ -129,14 +129,16 @@ body {
 }
 
 /* Focus State - Red Netflix Border */
-.poster.focused {
+.poster.focused,
+.poster:hover {
     border: 6px solid #E50914;
     transform: scale(1.08);
     z-index: 10;
     box-shadow: 0 0 30px rgba(229, 9, 20, 0.6);
 }
 
-.poster.focused img {
+.poster.focused img,
+.poster:hover img {
     filter: brightness(1.1);
 }
 
@@ -256,7 +258,8 @@ body {
     text-align: center;
 }
 
-.poster.focused .poster-title {
+.poster.focused .poster-title,
+.poster:hover .poster-title {
     opacity: 1;
 }
 
