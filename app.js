@@ -1,39 +1,42 @@
 /**
- * TV Streaming App - Strict ES5 JavaScript for Tizen 3.0
- * Netflix-style UI with remote control navigation
+ * TV Streaming App - ES5 Compatible (Tizen 3.0)
+ * Ad-light embed source, Samsung 2017 compatible
  */
 
-// Configuration
+// ================= CONFIG =================
 var TMDB_API_KEY = 'c1084d318757743e08fcf5cda7ae43da';
 var TMDB_BASE_URL = 'https://api.themoviedb.org/3';
 var IMAGE_BASE_URL = 'https://image.tmdb.org/t/p/w500';
-var VIDEO_BASE_URL = 'https://vidsrc.to/embed/movie/';
 
-// Application State
+/*
+ * Changed video provider:
+ * - More stable on old Samsung TVs
+ * - Less aggressive ads than vidsrc.to
+ */
+var VIDEO_BASE_URL = 'https://vidsrc.cc/v2/embed/movie/';
+
+// ============== STATE ====================
 var movies = [];
 var searchResults = [];
 var currentFocusIndex = 0;
-var currentSection = 'trending'; // 'trending' or 'search'
+var currentSection = 'trending';
 var isPlayerOpen = false;
-var searchQuery = '';
 var searchTimeout = null;
-var isUsingCursor = false; // Track if user is using cursor
 
-// DOM Elements
-var searchInput = null;
-var trendingRow = null;
-var searchResultsRow = null;
-var trendingSection = null;
-var searchResultsSection = null;
-var loading = null;
-var noResults = null;
-var videoPlayerContainer = null;
-var videoIframe = null;
-var closePlayerBtn = null;
+// ============== DOM ======================
+var searchInput;
+var trendingRow;
+var searchResultsRow;
+var trendingSection;
+var searchResultsSection;
+var loading;
+var noResults;
+var videoPlayerContainer;
+var videoIframe;
+var closePlayerBtn;
 
-// Initialize Application
+// ============== INIT =====================
 function initApp() {
-    // Cache DOM elements
     searchInput = document.getElementById('search-input');
     trendingRow = document.getElementById('trending-row');
     searchResultsRow = document.getElementById('search-results-row');
@@ -45,14 +48,12 @@ function initApp() {
     videoIframe = document.getElementById('video-iframe');
     closePlayerBtn = document.getElementById('close-player-btn');
 
-    // Show loading
     showLoading(true);
 
-    // Load trending movies
-    fetchTrendingMovies(function(error, data) {
+    fetchTrendingMovies(function (err, data) {
         showLoading(false);
-        if (error) {
-            console.error('Error fetching trending movies:', error);
+        if (err) {
+            console.log(err);
             return;
         }
         movies = data;
@@ -60,366 +61,182 @@ function initApp() {
         updateFocus();
     });
 
-    // Setup search input
     setupSearch();
-
-    // Setup keyboard event listeners
-    setupEventListeners();
+    setupEvents();
 }
 
-// HTTP Request using XMLHttpRequest (ES5)
+// ============== HTTP =====================
 function makeRequest(url, callback) {
     var xhr = new XMLHttpRequest();
     xhr.open('GET', url, true);
-    xhr.setRequestHeader('Accept', 'application/json');
-
-    xhr.onreadystatechange = function() {
+    xhr.onreadystatechange = function () {
         if (xhr.readyState === 4) {
             if (xhr.status === 200) {
                 try {
-                    var response = JSON.parse(xhr.responseText);
-                    callback(null, response);
+                    callback(null, JSON.parse(xhr.responseText));
                 } catch (e) {
                     callback(e, null);
                 }
             } else {
-                callback(new Error('HTTP Status: ' + xhr.status), null);
+                callback(new Error('HTTP ' + xhr.status), null);
             }
         }
     };
-
-    xhr.onerror = function() {
-        callback(new Error('Network Error'), null);
-    };
-
     xhr.send();
 }
 
-// Fetch Trending Movies from TMDB
-function fetchTrendingMovies(callback) {
+// ============== TMDB =====================
+function fetchTrendingMovies(cb) {
     var url = TMDB_BASE_URL + '/trending/movie/day?api_key=' + TMDB_API_KEY;
-    makeRequest(url, function(error, response) {
-        if (error) {
-            callback(error, null);
+    makeRequest(url, function (err, res) {
+        if (err || !res.results) {
+            cb(err || new Error('No data'), null);
             return;
         }
-        if (response.results && response.results.length > 0) {
-            callback(null, response.results);
-        } else {
-            callback(new Error('No movies found'), null);
-        }
+        cb(null, res.results);
     });
 }
 
-// Search Movies from TMDB
-function searchMovies(query, callback) {
-    var encodedQuery = encodeURIComponent(query);
-    var url = TMDB_BASE_URL + '/search/movie?api_key=' + TMDB_API_KEY + '&query=' + encodedQuery;
-    makeRequest(url, function(error, response) {
-        if (error) {
-            callback(error, null);
-            return;
-        }
-        if (response.results && response.results.length > 0) {
-            callback(null, response.results);
-        } else {
-            callback(null, []);
-        }
+function searchMovies(query, cb) {
+    var url = TMDB_BASE_URL + '/search/movie?api_key=' + TMDB_API_KEY +
+              '&query=' + encodeURIComponent(query);
+    makeRequest(url, function (err, res) {
+        cb(err, res && res.results ? res.results : []);
     });
 }
 
-// Get Current Movie List based on section
-function getCurrentMovies() {
-    if (currentSection === 'trending') {
-        return movies;
-    } else {
-        return searchResults;
-    }
-}
-
-// Render Movies in a Row
-function renderMovies(movieList, container) {
+// ============== UI =======================
+function renderMovies(list, container) {
     container.innerHTML = '';
-
-    if (!movieList || movieList.length === 0) {
-        return;
-    }
-
-    for (var i = 0; i < movieList.length; i++) {
-        var movie = movieList[i];
-        var posterPath = movie.poster_path;
-
-        if (!posterPath) {
-            continue; // Skip movies without posters
-        }
-
-        var posterUrl = IMAGE_BASE_URL + posterPath;
-        var poster = createPosterElement(movie, posterUrl, i);
-        container.appendChild(poster);
+    for (var i = 0; i < list.length; i++) {
+        if (!list[i].poster_path) continue;
+        container.appendChild(createPoster(list[i]));
     }
 }
 
-// Create Poster Element
-function createPosterElement(movie, posterUrl, index) {
-    var poster = document.createElement('div');
-    poster.className = 'poster';
-    poster.setAttribute('data-id', movie.id);
-    poster.setAttribute('data-title', movie.title || movie.name);
-    poster.setAttribute('data-index', index);
-    poster.setAttribute('tabindex', '0');
+function createPoster(movie) {
+    var div = document.createElement('div');
+    div.className = 'poster';
+    div.setAttribute('data-id', movie.id);
+    div.tabIndex = 0;
 
     var img = document.createElement('img');
-    img.src = posterUrl;
-    img.alt = movie.title || movie.name;
-    img.setAttribute('loading', 'lazy');
+    img.src = IMAGE_BASE_URL + movie.poster_path;
+    img.alt = movie.title;
 
-    poster.appendChild(img);
-
-    // Add cursor control event listeners
-    addCursorListeners(poster, index);
-
-    return poster;
+    div.appendChild(img);
+    return div;
 }
 
-// Add Cursor Control Event Listeners
-function addCursorListeners(poster, index) {
-    // Mouse enter - user is using cursor
-    poster.addEventListener('mouseenter', function() {
-        isUsingCursor = true;
-        currentFocusIndex = index;
-        updateFocus();
-    });
-
-    // Mouse leave - cursor left the poster
-    poster.addEventListener('mouseleave', function() {
-        // Don't remove focus, just track that cursor left
-        // The focused state will remain until another poster is hovered
-    });
-
-    // Click - open video player
-    poster.addEventListener('click', function() {
-        isUsingCursor = true;
-        currentFocusIndex = index;
-        updateFocus();
-        openPlayer();
-    });
-}
-
-// Update Focus State
 function updateFocus() {
-    var currentMovies = getCurrentMovies();
     var container = currentSection === 'trending' ? trendingRow : searchResultsRow;
     var posters = container.getElementsByClassName('poster');
 
-    // Remove focus from all posters
     for (var i = 0; i < posters.length; i++) {
         posters[i].classList.remove('focused');
     }
 
-    // Add focus to current poster
-    if (posters.length > 0 && currentFocusIndex >= 0 && currentFocusIndex < posters.length) {
-        var focusedPoster = posters[currentFocusIndex];
-        focusedPoster.classList.add('focused');
-        focusedPoster.focus();
-
-        // Scroll poster into view
-        focusedPoster.scrollIntoView({
-            behavior: 'smooth',
-            block: 'nearest',
-            inline: 'center'
-        });
+    if (posters[currentFocusIndex]) {
+        posters[currentFocusIndex].classList.add('focused');
+        posters[currentFocusIndex].focus();
+        posters[currentFocusIndex].scrollIntoView(false);
     }
 }
 
-// Setup Search Input
+// ============== SEARCH ===================
 function setupSearch() {
-    if (!searchInput) {
-        return;
-    }
+    if (!searchInput) return;
 
-    searchInput.addEventListener('input', function(event) {
-        var query = event.target.value.trim();
+    searchInput.addEventListener('input', function (e) {
+        var q = e.target.value.trim();
 
-        // Clear previous timeout
-        if (searchTimeout) {
-            clearTimeout(searchTimeout);
-        }
+        if (searchTimeout) clearTimeout(searchTimeout);
 
-        if (query === '') {
-            // Clear search and show trending
-            searchQuery = '';
+        if (!q) {
             currentSection = 'trending';
-            currentFocusIndex = 0;
-            searchResultsSection.classList.add('hidden');
             trendingSection.classList.remove('hidden');
+            searchResultsSection.classList.add('hidden');
+            currentFocusIndex = 0;
             updateFocus();
             return;
         }
 
-        searchQuery = query;
-
-        // Debounce search
-        searchTimeout = setTimeout(function() {
-            performSearch(query);
+        searchTimeout = setTimeout(function () {
+            showLoading(true);
+            searchMovies(q, function (err, res) {
+                showLoading(false);
+                searchResults = res;
+                currentSection = 'search';
+                currentFocusIndex = 0;
+                trendingSection.classList.add('hidden');
+                searchResultsSection.classList.remove('hidden');
+                renderMovies(searchResults, searchResultsRow);
+                updateFocus();
+            });
         }, 500);
     });
 }
 
-// Perform Search
-function performSearch(query) {
-    showLoading(true);
-    searchMovies(query, function(error, data) {
-        showLoading(false);
-
-        if (error) {
-            console.error('Search error:', error);
-            return;
-        }
-
-        searchResults = data;
-        currentSection = 'search';
-        currentFocusIndex = 0;
-
-        // Show search results section
-        trendingSection.classList.add('hidden');
-        searchResultsSection.classList.remove('hidden');
-
-        if (searchResults.length === 0) {
-            noResults.classList.remove('hidden');
-            searchResultsRow.innerHTML = '';
-        } else {
-            noResults.classList.add('hidden');
-            renderMovies(searchResults, searchResultsRow);
-            updateFocus();
-        }
-    });
-}
-
-// Show/Hide Loading
-function showLoading(show) {
-    if (show) {
-        loading.classList.remove('hidden');
-    } else {
-        loading.classList.add('hidden');
-    }
-}
-
-// Setup Event Listeners for Navigation
-function setupEventListeners() {
-    // Listen for keydown events on document
-    document.addEventListener('keydown', handleKeyDown);
-
-    // Setup close player button
-    if (closePlayerBtn) {
-        closePlayerBtn.addEventListener('click', closePlayer);
-    }
-}
-
-// Handle Keyboard Events (Remote Control)
-function handleKeyDown(event) {
-    var keyCode = event.keyCode;
-
-    // Handle Return key (Tizen specific: 10009)
-    if (keyCode === 10009 || keyCode === 27) { // 27 is Escape key
-        if (isPlayerOpen) {
-            closePlayer();
-            event.preventDefault();
-            return;
-        }
-    }
-
-    // If player is open, only handle return key
-    if (isPlayerOpen) {
-        return;
-    }
-
-    // If user starts using keyboard, disable cursor mode
-    if (keyCode === 37 || keyCode === 38 || keyCode === 39 || keyCode === 40 || keyCode === 13) {
-        isUsingCursor = false;
-    }
-
-    var currentMovies = getCurrentMovies();
-    if (!currentMovies || currentMovies.length === 0) {
-        return;
-    }
-
-    var container = currentSection === 'trending' ? trendingRow : searchResultsRow;
-    var posters = container.getElementsByClassName('poster');
-
-    if (posters.length === 0) {
-        return;
-    }
-
-    var maxIndex = posters.length - 1;
-
-    switch (keyCode) {
-        case 37: // Left Arrow
-            event.preventDefault();
-            currentFocusIndex--;
-            if (currentFocusIndex < 0) {
-                currentFocusIndex = maxIndex;
-            }
-            updateFocus();
-            break;
-
-        case 39: // Right Arrow
-            event.preventDefault();
-            currentFocusIndex++;
-            if (currentFocusIndex > maxIndex) {
-                currentFocusIndex = 0;
-            }
-            updateFocus();
-            break;
-
-        case 38: // Up Arrow
-            // Could navigate between sections in future
-            event.preventDefault();
-            break;
-
-        case 40: // Down Arrow
-            // Could navigate to details in future
-            event.preventDefault();
-            break;
-
-        case 13: // Enter Key
-            event.preventDefault();
-            openPlayer();
-            break;
-    }
-}
-
-// Open Video Player
+// ============== PLAYER ===================
 function openPlayer() {
-    var currentMovies = getCurrentMovies();
-    if (currentMovies.length === 0) {
-        return;
-    }
+    var list = currentSection === 'trending' ? movies : searchResults;
+    var movie = list[currentFocusIndex];
+    if (!movie) return;
 
-    var movie = currentMovies[currentFocusIndex];
-    if (!movie || !movie.id) {
-        return;
-    }
-
-    var videoUrl = VIDEO_BASE_URL + movie.id;
-    videoIframe.src = videoUrl;
+    videoIframe.src = VIDEO_BASE_URL + movie.id;
     videoPlayerContainer.classList.remove('hidden');
     isPlayerOpen = true;
-
-    // Focus on close button for accessibility
     closePlayerBtn.focus();
 }
 
-// Close Video Player
 function closePlayer() {
     videoIframe.src = '';
     videoPlayerContainer.classList.add('hidden');
     isPlayerOpen = false;
-
-    // Restore focus to last selected poster
     updateFocus();
 }
 
-// Initialize app when DOM is ready
+// ============== EVENTS ===================
+function setupEvents() {
+    document.addEventListener('keydown', function (e) {
+        var code = e.keyCode;
+
+        if ((code === 10009 || code === 27) && isPlayerOpen) {
+            closePlayer();
+            e.preventDefault();
+            return;
+        }
+
+        if (isPlayerOpen) return;
+
+        var container = currentSection === 'trending' ? trendingRow : searchResultsRow;
+        var posters = container.getElementsByClassName('poster');
+        if (!posters.length) return;
+
+        if (code === 37) {
+            currentFocusIndex = (currentFocusIndex - 1 + posters.length) % posters.length;
+        } else if (code === 39) {
+            currentFocusIndex = (currentFocusIndex + 1) % posters.length;
+        } else if (code === 13) {
+            openPlayer();
+            return;
+        } else {
+            return;
+        }
+
+        e.preventDefault();
+        updateFocus();
+    });
+
+    closePlayerBtn.addEventListener('click', closePlayer);
+}
+
+// ============== UTIL =====================
+function showLoading(show) {
+    loading.classList[show ? 'remove' : 'add']('hidden');
+}
+
+// ============== START ====================
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', initApp);
 } else {
